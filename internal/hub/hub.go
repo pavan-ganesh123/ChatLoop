@@ -1,6 +1,9 @@
 package hub
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"log"
+)
 
 type Outgoing struct {
 	Type    string   `json:"type"`
@@ -24,7 +27,6 @@ type Hub struct {
 	Private      chan privateMsg
 }
 
-// constructor
 func NewHub() *Hub {
 	return &Hub{
 		Clients:      make(map[*Client]bool),
@@ -42,8 +44,14 @@ func (h *Hub) Run() {
 
 		// ✅ Register new client
 		case client := <-h.Register:
+			log.Println("🟢 Registering client:", client.UserID, client.Email)
+
 			h.Clients[client] = true
-			h.NameToClient[client.Email] = append(h.NameToClient[client.Email], client)
+
+			h.NameToClient[client.UserID] = append(h.NameToClient[client.UserID], client)
+
+			log.Println("📊 Total connected clients:", len(h.Clients))
+			log.Println("📊 NameToClient map:", h.NameToClient)
 
 			msg := Outgoing{
 				Type:    "info",
@@ -55,6 +63,7 @@ func (h *Hub) Run() {
 				select {
 				case c.Send <- data:
 				default:
+					log.Println("⚠️ Failed sending join message, removing client")
 					close(c.Send)
 					delete(h.Clients, c)
 				}
@@ -62,10 +71,12 @@ func (h *Hub) Run() {
 
 		// ❌ Remove client
 		case client := <-h.Unregister:
+			log.Println("🔴 Unregistering client:", client.UserID, client.Email)
+
 			if _, ok := h.Clients[client]; ok {
 				delete(h.Clients, client)
 
-				clients := h.NameToClient[client.Email]
+				clients := h.NameToClient[client.UserID]
 				newList := []*Client{}
 
 				for _, c := range clients {
@@ -75,33 +86,64 @@ func (h *Hub) Run() {
 				}
 
 				if len(newList) == 0 {
-					delete(h.NameToClient, client.Email)
+					delete(h.NameToClient,  client.UserID)
 				} else {
-					h.NameToClient[client.Email] = newList
+					h.NameToClient[client.UserID] = newList
 				}
 
+				log.Println("📊 Remaining clients:", len(h.Clients))
 				close(client.Send)
 			}
+
 		// 📢 Broadcast message
 		case msg := <-h.Broadcast:
+			log.Println("📢 Broadcasting message from:", msg.From)
+
 			data, _ := json.Marshal(msg)
 
 			for client := range h.Clients {
 				select {
 				case client.Send <- data:
 				default:
+					log.Println("⚠️ Failed broadcast send, removing client")
 					close(client.Send)
 					delete(h.Clients, client)
 				}
 			}
+
 		// 🔒 Private message
 		case pm := <-h.Private:
-			if clients, ok := h.NameToClient[pm.to]; ok {
-				for _, c := range clients {
-					data, _ := json.Marshal(pm.out)
-					c.Send <- data
+			log.Println("🔁 Routing private message to:", pm.to)
+
+			clients, ok := h.NameToClient[pm.to]
+
+			if !ok {
+				log.Println("❌ Receiver NOT CONNECTED:", pm.to)
+				log.Println("📊 Available keys:", getKeys(h.NameToClient))
+				continue
+			}
+
+			log.Println("✅ Receiver FOUND:", pm.to, "Connections:", len(clients))
+
+			data, _ := json.Marshal(pm.out)
+
+			for _, c := range clients {
+				select {
+				case c.Send <- data:
+					log.Println("📤 Message delivered to:", pm.to)
+				default:
+					log.Println("⚠️ Failed sending to one connection")
 				}
 			}
 		}
 	}
+}
+
+// 🔧 helper to debug map keys
+func getKeys(m map[string][]*Client) []string {
+	keys := []string{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

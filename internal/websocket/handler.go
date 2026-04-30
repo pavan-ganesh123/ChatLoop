@@ -7,6 +7,7 @@ import (
 	"realtime-chat/internal/hub"
 
 	"github.com/gorilla/websocket"
+	"strconv"
 )
 
 var upgrader = websocket.Upgrader{
@@ -46,7 +47,7 @@ func ServeWS(h *hub.Hub, w http.ResponseWriter, r *http.Request) {
 	Hub:    h,
 	Conn:   conn,
 	Send:   make(chan []byte, 256),
-	UserID: user.ID,     // from JWT / auth
+	UserID: strconv.Itoa(int(user.UserID)),     // from JWT / auth
 	Email:  user.Email,  // from JWT / auth
 }
 

@@ -1,8 +1,10 @@
 package hub
 
 import (
-	"github.com/gorilla/websocket"
 	"encoding/json"
+	"log"
+
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
@@ -21,24 +23,35 @@ type Incoming struct {
 
 func (c *Client) ReadPump() {
 	defer func() {
+		log.Println("❌ Disconnecting:", c.UserID, c.Email)
 		c.Hub.Unregister <- c
 		c.Conn.Close()
 	}()
 
+	log.Println("✅ ReadPump started for:", c.UserID, c.Email)
+
 	for {
 		_, msg, err := c.Conn.ReadMessage()
 		if err != nil {
+			log.Println("❌ Read error:", c.UserID, err)
 			break
 		}
 
+		log.Println("📩 Raw message from", c.UserID, ":", string(msg))
+
 		var incoming Incoming
 		if err := json.Unmarshal(msg, &incoming); err != nil {
-			continue // ignore bad messages
+			log.Println("❌ JSON parse error:", err)
+			continue
 		}
+
+		log.Println("📨 Parsed message:", incoming.Type, "From:", c.UserID)
 
 		switch incoming.Type {
 
 		case "broadcast":
+			log.Println("📢 Broadcast from:", c.UserID)
+
 			c.Hub.Broadcast <- Outgoing{
 				Type:    "broadcast",
 				From:    c.Email,
@@ -47,8 +60,11 @@ func (c *Client) ReadPump() {
 
 		case "private":
 			if incoming.To == "" {
+				log.Println("⚠️ Private message missing receiver")
 				continue
 			}
+
+			log.Println("📤 Private message from", c.UserID, "to", incoming.To)
 
 			c.Hub.Private <- privateMsg{
 				to: incoming.To,
@@ -60,7 +76,8 @@ func (c *Client) ReadPump() {
 			}
 
 		case "list":
-			// send user list only to this client
+			log.Println("📋 User list requested by:", c.UserID)
+
 			users := make([]string, 0)
 
 			for name := range c.Hub.NameToClient {
@@ -73,27 +90,38 @@ func (c *Client) ReadPump() {
 			}
 
 			data, _ := json.Marshal(out)
+
+			log.Println("📤 Sending user list to:", c.UserID, users)
+
 			c.Send <- data
 
 		default:
-			// ignore unknown types
+			log.Println("⚠️ Unknown message type:", incoming.Type)
 		}
 	}
 }
 
 func (c *Client) WritePump() {
-	defer c.Conn.Close()
+	defer func() {
+		log.Println("❌ WritePump closing for:", c.UserID)
+		c.Conn.Close()
+	}()
+
+	log.Println("✅ WritePump started for:", c.UserID)
 
 	for {
 		msg, ok := <-c.Send
 		if !ok {
-			// channel closed
+			log.Println("❌ Send channel closed for:", c.UserID)
 			c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 			return
 		}
 
+		log.Println("📤 Sending message to", c.UserID, ":", string(msg))
+
 		err := c.Conn.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
+			log.Println("❌ Write error for", c.UserID, ":", err)
 			return
 		}
 	}
