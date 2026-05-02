@@ -3,7 +3,7 @@ package hub
 import (
 	"encoding/json"
 	"log"
-
+	S "realtime-chat/internal/service"
 	"github.com/gorilla/websocket"
 )
 
@@ -59,12 +59,37 @@ func (c *Client) ReadPump() {
 			}
 
 		case "private":
+
 			if incoming.To == "" {
 				log.Println("⚠️ Private message missing receiver")
 				continue
 			}
 
-			log.Println("📤 Private message from", c.UserID, "to", incoming.To)
+			// BLOCK CHECK
+			blocked := S.CheckIfBlocked(
+				c.UserID,
+				incoming.To,
+			)
+			if blocked {
+
+				out := Outgoing{
+					Type:    "error",
+					Message: "You cannot message this user",
+				}
+
+				data, _ := json.Marshal(out)
+
+				c.Send <- data
+
+				continue
+			}
+
+			log.Println(
+				"📤 Private message from",
+				c.UserID,
+				"to",
+				incoming.To,
+			)
 
 			c.Hub.Private <- privateMsg{
 				to: incoming.To,
@@ -74,7 +99,6 @@ func (c *Client) ReadPump() {
 					Message: incoming.Message,
 				},
 			}
-
 		case "list":
 			log.Println("📋 User list requested by:", c.UserID)
 
