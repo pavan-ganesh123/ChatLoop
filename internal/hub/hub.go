@@ -6,16 +6,21 @@ import (
 )
 
 type Outgoing struct {
-	Type    string   `json:"type"`
-	From    string   `json:"from,omitempty"`
-	Message string   `json:"message,omitempty"`
-	To      string   `json:"to,omitempty"`
-	Users   []string `json:"users,omitempty"`
+	Type             string   `json:"type"`
+	MessageID        string   `json:"messageId,omitempty"`
+	From             string   `json:"from,omitempty"`
+	FromUserID       string   `json:"fromUserId,omitempty"`
+	To               string   `json:"to,omitempty"`
+	Message          string   `json:"message,omitempty"`
+	ReplyToMessageID string   `json:"replyToMessageId,omitempty"`
+	CreatedAt        string   `json:"createdAt,omitempty"`
+	Users            []string `json:"users,omitempty"`
 }
 
 type privateMsg struct {
-	to  string
-	out Outgoing
+	to   string
+	from string
+	out  Outgoing
 }
 
 type Hub struct {
@@ -28,6 +33,7 @@ type Hub struct {
 }
 
 func NewHub() *Hub {
+
 	return &Hub{
 		Clients:      make(map[*Client]bool),
 		NameToClient: make(map[string][]*Client),
@@ -39,111 +45,227 @@ func NewHub() *Hub {
 }
 
 func (h *Hub) Run() {
+
 	for {
+
 		select {
 
-		// ✅ Register new client
+		// =====================================================
+		// REGISTER
+		// =====================================================
+
 		case client := <-h.Register:
-			log.Println("🟢 Registering client:", client.UserID, client.Email)
+
+			log.Println(
+				"🟢 Registering client:",
+				client.UserID,
+				client.Email,
+			)
 
 			h.Clients[client] = true
 
-			h.NameToClient[client.UserID] = append(h.NameToClient[client.UserID], client)
+			h.NameToClient[client.UserID] =
+				append(
+					h.NameToClient[client.UserID],
+					client,
+				)
 
-			log.Println("📊 Total connected clients:", len(h.Clients))
-			log.Println("📊 NameToClient map:", h.NameToClient)
+			log.Println(
+				"📊 Total connected clients:",
+				len(h.Clients),
+			)
 
-			msg := Outgoing{
+			joinMsg := Outgoing{
 				Type:    "info",
 				Message: client.Email + " joined",
 			}
-			data, _ := json.Marshal(msg)
+
+			data, _ := json.Marshal(joinMsg)
 
 			for c := range h.Clients {
+
 				select {
+
 				case c.Send <- data:
+
 				default:
-					log.Println("⚠️ Failed sending join message, removing client")
+
+					log.Println(
+						"⚠️ Failed sending join message",
+					)
+
 					close(c.Send)
+
 					delete(h.Clients, c)
 				}
 			}
 
-		// ❌ Remove client
+		// =====================================================
+		// UNREGISTER
+		// =====================================================
+
 		case client := <-h.Unregister:
-			log.Println("🔴 Unregistering client:", client.UserID, client.Email)
+
+			log.Println(
+				"🔴 Unregistering client:",
+				client.UserID,
+				client.Email,
+			)
 
 			if _, ok := h.Clients[client]; ok {
+
 				delete(h.Clients, client)
 
-				clients := h.NameToClient[client.UserID]
+				clients :=
+					h.NameToClient[client.UserID]
+
 				newList := []*Client{}
 
 				for _, c := range clients {
+
 					if c != client {
 						newList = append(newList, c)
 					}
 				}
 
 				if len(newList) == 0 {
-					delete(h.NameToClient,  client.UserID)
+
+					delete(
+						h.NameToClient,
+						client.UserID,
+					)
+
 				} else {
-					h.NameToClient[client.UserID] = newList
+
+					h.NameToClient[client.UserID] =
+						newList
 				}
 
-				log.Println("📊 Remaining clients:", len(h.Clients))
 				close(client.Send)
+
+				log.Println(
+					"📊 Remaining clients:",
+					len(h.Clients),
+				)
 			}
 
-		// 📢 Broadcast message
+		// =====================================================
+		// BROADCAST
+		// =====================================================
+
 		case msg := <-h.Broadcast:
-			log.Println("📢 Broadcasting message from:", msg.From)
+
+			log.Println(
+				"📢 Broadcasting message from:",
+				msg.From,
+			)
 
 			data, _ := json.Marshal(msg)
 
 			for client := range h.Clients {
+
 				select {
+
 				case client.Send <- data:
+
 				default:
-					log.Println("⚠️ Failed broadcast send, removing client")
+
+					log.Println(
+						"⚠️ Failed broadcast send",
+					)
+
 					close(client.Send)
+
 					delete(h.Clients, client)
 				}
 			}
 
-		// 🔒 Private message
+		// =====================================================
+		// PRIVATE MESSAGE
+		// =====================================================
+
 		case pm := <-h.Private:
-			log.Println("🔁 Routing private message to:", pm.to)
 
-			clients, ok := h.NameToClient[pm.to]
-
-			if !ok {
-				log.Println("❌ Receiver NOT CONNECTED:", pm.to)
-				log.Println("📊 Available keys:", getKeys(h.NameToClient))
-				continue
-			}
-
-			log.Println("✅ Receiver FOUND:", pm.to, "Connections:", len(clients))
+			log.Println(
+				"🔁 Routing private message",
+			)
 
 			data, _ := json.Marshal(pm.out)
 
-			for _, c := range clients {
-				select {
-				case c.Send <- data:
-					log.Println("📤 Message delivered to:", pm.to)
-				default:
-					log.Println("⚠️ Failed sending to one connection")
+			// =========================================
+			// SEND TO RECEIVER
+			// =========================================
+
+			receiverClients, ok :=
+				h.NameToClient[pm.to]
+
+			if ok {
+
+				for _, c := range receiverClients {
+
+					select {
+
+					case c.Send <- data:
+
+						log.Println(
+							"📤 Delivered to receiver:",
+							pm.to,
+						)
+
+					default:
+
+						log.Println(
+							"⚠️ Failed receiver delivery",
+						)
+					}
+				}
+			}
+
+			// =========================================
+			// SEND TO SENDER
+			// =========================================
+
+			senderClients, ok :=
+				h.NameToClient[pm.from]
+
+			if ok {
+
+				for _, c := range senderClients {
+
+					select {
+
+					case c.Send <- data:
+
+						log.Println(
+							"📤 Delivered to sender:",
+							pm.from,
+						)
+
+					default:
+
+						log.Println(
+							"⚠️ Failed sender delivery",
+						)
+					}
 				}
 			}
 		}
 	}
 }
 
-// 🔧 helper to debug map keys
-func getKeys(m map[string][]*Client) []string {
+// =====================================================
+// DEBUG HELPER
+// =====================================================
+
+func getKeys(
+	m map[string][]*Client,
+) []string {
+
 	keys := []string{}
+
 	for k := range m {
 		keys = append(keys, k)
 	}
+
 	return keys
 }

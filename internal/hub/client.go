@@ -3,7 +3,9 @@ package hub
 import (
 	"encoding/json"
 	"log"
+	"time"
 	S "realtime-chat/internal/service"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -16,9 +18,10 @@ type Client struct {
 }
 
 type Incoming struct {
-	Type    string `json:"type"`             // "broadcast" | "private" | "list"
-	Message string `json:"message,omitempty"`
-	To      string `json:"to,omitempty"`
+	Type             string `json:"type"`
+	Message          string `json:"message,omitempty"`
+	To               string `json:"to,omitempty"`
+	ReplyToMessageID string `json:"replyToMessageId,omitempty"`
 }
 
 func (c *Client) ReadPump() {
@@ -91,14 +94,30 @@ func (c *Client) ReadPump() {
 				incoming.To,
 			)
 
-			c.Hub.Private <- privateMsg{
-				to: incoming.To,
-				out: Outgoing{
-					Type:    "private",
-					From:    c.Email,
-					Message: incoming.Message,
-				},
+			messageID := uuid.New().String()
+			outgoing := Outgoing{
+				Type:             "private",
+				MessageID:        messageID,
+				From:             c.Email,
+				FromUserID:       c.UserID,
+				To:               incoming.To,
+				Message:          incoming.Message,
+				ReplyToMessageID: incoming.ReplyToMessageID,
+				CreatedAt:        time.Now().Format(time.RFC3339),
 			}
+
+			c.Hub.Private <- privateMsg{
+				to:   incoming.To,
+				from: c.UserID,
+				out:  outgoing,
+			}
+			go S.SaveMessage(
+				messageID,
+				c.UserID,
+				incoming.To,
+				incoming.Message,
+				incoming.ReplyToMessageID,
+			)
 		case "list":
 			log.Println("📋 User list requested by:", c.UserID)
 
