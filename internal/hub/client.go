@@ -40,21 +40,15 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		log.Println("📩 Raw message from", c.UserID, ":", string(msg))
 
 		var incoming Incoming
 		if err := json.Unmarshal(msg, &incoming); err != nil {
 			log.Println("❌ JSON parse error:", err)
 			continue
 		}
-
-		log.Println("📨 Parsed message:", incoming.Type, "From:", c.UserID)
-
 		switch incoming.Type {
 
 		case "broadcast":
-			log.Println("📢 Broadcast from:", c.UserID)
-
 			c.Hub.Broadcast <- Outgoing{
 				Type:    "broadcast",
 				From:    c.Email,
@@ -86,13 +80,6 @@ func (c *Client) ReadPump() {
 
 				continue
 			}
-
-			log.Println(
-				"📤 Private message from",
-				c.UserID,
-				"to",
-				incoming.To,
-			)
 
 			messageID := uuid.New().String()
 			outgoing := Outgoing{

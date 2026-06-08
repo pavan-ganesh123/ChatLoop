@@ -70,10 +70,6 @@ func (h *Hub) Run() {
 					client,
 				)
 
-			log.Println(
-				"📊 Total connected clients:",
-				len(h.Clients),
-			)
 
 			joinMsg := Outgoing{
 				Type:    "info",
@@ -143,10 +139,6 @@ func (h *Hub) Run() {
 
 				close(client.Send)
 
-				log.Println(
-					"📊 Remaining clients:",
-					len(h.Clients),
-				)
 			}
 
 		// =====================================================
@@ -155,10 +147,6 @@ func (h *Hub) Run() {
 
 		case msg := <-h.Broadcast:
 
-			log.Println(
-				"📢 Broadcasting message from:",
-				msg.From,
-			)
 
 			data, _ := json.Marshal(msg)
 
@@ -170,9 +158,6 @@ func (h *Hub) Run() {
 
 				default:
 
-					log.Println(
-						"⚠️ Failed broadcast send",
-					)
 
 					close(client.Send)
 
@@ -185,10 +170,6 @@ func (h *Hub) Run() {
 		// =====================================================
 
 		case pm := <-h.Private:
-
-			log.Println(
-				"🔁 Routing private message",
-			)
 
 			data, _ := json.Marshal(pm.out)
 
