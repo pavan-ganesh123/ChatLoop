@@ -19,12 +19,14 @@ type Client struct {
 
 type Incoming struct {
 	Type             string `json:"type"`
+	MessageID        string `json:"messageId,omitempty"`
 	Message          string `json:"message,omitempty"`
 	To               string `json:"to,omitempty"`
 	ReplyToMessageID string `json:"replyToMessageId,omitempty"`
 }
 
 func (c *Client) ReadPump() {
+
 	defer func() {
 		log.Println("❌ Disconnecting:", c.UserID, c.Email)
 		c.Hub.Unregister <- c
@@ -34,21 +36,24 @@ func (c *Client) ReadPump() {
 	log.Println("✅ ReadPump started for:", c.UserID, c.Email)
 
 	for {
+
 		_, msg, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Println("❌ Read error:", c.UserID, err)
 			break
 		}
 
-
 		var incoming Incoming
+
 		if err := json.Unmarshal(msg, &incoming); err != nil {
 			log.Println("❌ JSON parse error:", err)
 			continue
 		}
+
 		switch incoming.Type {
 
 		case "broadcast":
+
 			c.Hub.Broadcast <- Outgoing{
 				Type:    "broadcast",
 				From:    c.Email,
@@ -58,15 +63,16 @@ func (c *Client) ReadPump() {
 		case "private":
 
 			if incoming.To == "" {
+
 				log.Println("⚠️ Private message missing receiver")
 				continue
 			}
 
-			// BLOCK CHECK
 			blocked := S.CheckIfBlocked(
 				c.UserID,
 				incoming.To,
 			)
+
 			if blocked {
 
 				out := Outgoing{
@@ -82,6 +88,7 @@ func (c *Client) ReadPump() {
 			}
 
 			messageID := uuid.New().String()
+
 			outgoing := Outgoing{
 				Type:             "private",
 				MessageID:        messageID,
@@ -98,6 +105,7 @@ func (c *Client) ReadPump() {
 				from: c.UserID,
 				out:  outgoing,
 			}
+
 			go S.SaveMessage(
 				messageID,
 				c.UserID,
@@ -105,8 +113,30 @@ func (c *Client) ReadPump() {
 				incoming.Message,
 				incoming.ReplyToMessageID,
 			)
+
+		case "delete":
+
+			if incoming.To == "" {
+
+				log.Println("⚠️ Delete missing receiver")
+				continue
+			}
+
+			go S.DeleteForEveryone(
+				incoming.MessageID,
+			)
+
+			c.Hub.Delete <- privateMsg{
+				to:   incoming.To,
+				from: c.UserID,
+				out: Outgoing{
+					Type:      "delete",
+					MessageID: incoming.MessageID,
+					DeletedForEveryone:   true,
+				},
+			}
+
 		case "list":
-			log.Println("📋 User list requested by:", c.UserID)
 
 			users := make([]string, 0)
 
@@ -121,12 +151,14 @@ func (c *Client) ReadPump() {
 
 			data, _ := json.Marshal(out)
 
-			log.Println("📤 Sending user list to:", c.UserID, users)
-
 			c.Send <- data
 
 		default:
-			log.Println("⚠️ Unknown message type:", incoming.Type)
+
+			log.Println(
+				"⚠️ Unknown message type:",
+				incoming.Type,
+			)
 		}
 	}
 }

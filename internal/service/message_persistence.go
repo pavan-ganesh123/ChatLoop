@@ -79,3 +79,34 @@ func SaveMessage(
 		string(responseBody),
 	)
 }
+
+func DeleteForEveryone(
+    messageID string,
+) {
+
+    query := `
+    mutation DeleteForEveryone(
+        $messageId:String!
+    ){
+        deleteForEveryone(
+            messageId:$messageId
+        ){
+            id
+        }
+    }`
+
+    body := GraphQLRequest{
+        Query: query,
+        Variables: map[string]interface{}{
+            "messageId": messageID,
+        },
+    }
+
+    jsonBody, _ := json.Marshal(body)
+
+    http.Post(
+        "http://localhost:8080/graphql",
+        "application/json",
+        bytes.NewBuffer(jsonBody),
+    )
+}

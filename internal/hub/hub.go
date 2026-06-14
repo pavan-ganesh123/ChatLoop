@@ -15,6 +15,7 @@ type Outgoing struct {
 	ReplyToMessageID string   `json:"replyToMessageId,omitempty"`
 	CreatedAt        string   `json:"createdAt,omitempty"`
 	Users            []string `json:"users,omitempty"`
+	DeletedForEveryone bool `json:"deletedForEveryone,omitempty"`
 }
 
 type privateMsg struct {
@@ -30,6 +31,7 @@ type Hub struct {
 	Unregister   chan *Client
 	Broadcast    chan Outgoing
 	Private      chan privateMsg
+	Delete chan privateMsg
 }
 
 func NewHub() *Hub {
@@ -41,6 +43,7 @@ func NewHub() *Hub {
 		Unregister:   make(chan *Client),
 		Broadcast:    make(chan Outgoing),
 		Private:      make(chan privateMsg),
+		Delete: make(chan privateMsg),
 	}
 }
 
@@ -230,7 +233,45 @@ func (h *Hub) Run() {
 					}
 				}
 			}
+		case dm := <-h.Delete:
+
+			data, _ := json.Marshal(dm.out)
+
+			receiverClients, ok :=
+				h.NameToClient[dm.to]
+
+			if ok {
+
+				for _, c := range receiverClients {
+
+					select {
+
+					case c.Send <- data:
+
+					default:
+
+					}
+				}
+			}
+
+			senderClients, ok :=
+				h.NameToClient[dm.from]
+
+			if ok {
+
+				for _, c := range senderClients {
+
+					select {
+
+					case c.Send <- data:
+
+					default:
+
+					}
+				}
+			}
 		}
+		
 	}
 }
 
