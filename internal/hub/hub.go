@@ -15,6 +15,7 @@ type Outgoing struct {
 	ReplyToMessageID string   `json:"replyToMessageId,omitempty"`
 	CreatedAt        string   `json:"createdAt,omitempty"`
 	Users            []string `json:"users,omitempty"`
+	DeletedForEveryone bool `json:"deletedForEveryone,omitempty"`
 }
 
 type privateMsg struct {
@@ -30,6 +31,7 @@ type Hub struct {
 	Unregister   chan *Client
 	Broadcast    chan Outgoing
 	Private      chan privateMsg
+	Delete chan privateMsg
 }
 
 func NewHub() *Hub {
@@ -41,6 +43,7 @@ func NewHub() *Hub {
 		Unregister:   make(chan *Client),
 		Broadcast:    make(chan Outgoing),
 		Private:      make(chan privateMsg),
+		Delete: make(chan privateMsg),
 	}
 }
 
@@ -70,10 +73,6 @@ func (h *Hub) Run() {
 					client,
 				)
 
-			log.Println(
-				"📊 Total connected clients:",
-				len(h.Clients),
-			)
 
 			joinMsg := Outgoing{
 				Type:    "info",
@@ -143,10 +142,6 @@ func (h *Hub) Run() {
 
 				close(client.Send)
 
-				log.Println(
-					"📊 Remaining clients:",
-					len(h.Clients),
-				)
 			}
 
 		// =====================================================
@@ -155,10 +150,6 @@ func (h *Hub) Run() {
 
 		case msg := <-h.Broadcast:
 
-			log.Println(
-				"📢 Broadcasting message from:",
-				msg.From,
-			)
 
 			data, _ := json.Marshal(msg)
 
@@ -170,9 +161,6 @@ func (h *Hub) Run() {
 
 				default:
 
-					log.Println(
-						"⚠️ Failed broadcast send",
-					)
 
 					close(client.Send)
 
@@ -185,10 +173,6 @@ func (h *Hub) Run() {
 		// =====================================================
 
 		case pm := <-h.Private:
-
-			log.Println(
-				"🔁 Routing private message",
-			)
 
 			data, _ := json.Marshal(pm.out)
 
@@ -249,7 +233,45 @@ func (h *Hub) Run() {
 					}
 				}
 			}
+		case dm := <-h.Delete:
+
+			data, _ := json.Marshal(dm.out)
+
+			receiverClients, ok :=
+				h.NameToClient[dm.to]
+
+			if ok {
+
+				for _, c := range receiverClients {
+
+					select {
+
+					case c.Send <- data:
+
+					default:
+
+					}
+				}
+			}
+
+			senderClients, ok :=
+				h.NameToClient[dm.from]
+
+			if ok {
+
+				for _, c := range senderClients {
+
+					select {
+
+					case c.Send <- data:
+
+					default:
+
+					}
+				}
+			}
 		}
+		
 	}
 }
 
