@@ -15,7 +15,7 @@ import (
 func main() {
 
 	// POSTGRES CONNECTION
-	connStr := "host=ep-red-scene-anvjjntv-pooler.c-6.us-east-1.aws.neon.tech port=5432 user=neondb_owner password=npg_qBuxJ4OQiTe1 dbname=neondb sslmode=require"
+	connStr := "host=ep-red-scene-anvjjntv-pooler.c-6.us-east-1.aws.neon.tech port=5432 user=neondb_owner password=npg_qfT40vXFSZLW dbname=neondb sslmode=require"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
