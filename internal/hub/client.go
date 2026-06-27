@@ -22,6 +22,9 @@ type Incoming struct {
 	MessageID        string `json:"messageId,omitempty"`
 	Message          string `json:"message,omitempty"`
 	To               string `json:"to,omitempty"`
+	PostID            string `json:"postId,omitempty"`
+	PostTitle         string `json:"postTitle,omitempty"`
+	PostImage         string `json:"postImage,omitempty"`
 	ReplyToMessageID string `json:"replyToMessageId,omitempty"`
 }
 
@@ -153,6 +156,33 @@ func (c *Client) ReadPump() {
 
 			c.Send <- data
 
+		case "share_post":
+			messageID := uuid.New().String()
+
+			outgoing := Outgoing{
+				Type:       "share_post",
+				MessageID:  messageID,
+				From:        c.Email,
+				FromUserID:  c.UserID,
+				To:          incoming.To,
+				PostID:      incoming.PostID,
+				PostTitle:   incoming.PostTitle,
+				PostImage:   incoming.PostImage,
+				CreatedAt:   time.Now().Format(time.RFC3339),
+			}
+
+			c.Hub.Private <- privateMsg{
+				to: incoming.To,
+				from: c.UserID,
+				out: outgoing,
+			}
+
+			go S.SaveSharedPost(
+				messageID,
+				c.UserID,
+				incoming.To,
+				incoming.PostID,
+			)
 		default:
 
 			log.Println(
