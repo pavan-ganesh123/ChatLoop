@@ -12,6 +12,9 @@ type Outgoing struct {
 	FromUserID       string   `json:"fromUserId,omitempty"`
 	To               string   `json:"to,omitempty"`
 	Message          string   `json:"message,omitempty"`
+	PostID             string   `json:"postId,omitempty"`
+	PostTitle          string   `json:"postTitle,omitempty"`
+	PostImage          string   `json:"postImage,omitempty"`
 	ReplyToMessageID string   `json:"replyToMessageId,omitempty"`
 	CreatedAt        string   `json:"createdAt,omitempty"`
 	Users            []string `json:"users,omitempty"`

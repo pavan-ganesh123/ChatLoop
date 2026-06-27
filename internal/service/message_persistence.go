@@ -110,3 +110,64 @@ func DeleteForEveryone(
         bytes.NewBuffer(jsonBody),
     )
 }
+
+func SaveSharedPost(
+	messageID string,
+	senderID string,
+	receiverID string,
+	postID string,
+) {
+
+	query := `
+	mutation SaveSharedPost(
+		$messageId: String!,
+		$senderId: ID!,
+		$receiverId: ID!,
+		$sharedPostId: ID!
+	) {
+		saveSharedPost(
+			messageId: $messageId,
+			senderId: $senderId,
+			receiverId: $receiverId,
+			sharedPostId: $sharedPostId
+		) {
+			id
+			messageId
+		}
+	}`
+
+	body := GraphQLRequest{
+		Query: query,
+		Variables: map[string]interface{}{
+			"messageId": messageID,
+			"senderId": senderID,
+			"receiverId": receiverID,
+			"sharedPostId": postID,
+		},
+	}
+
+	jsonBody, _ := json.Marshal(body)
+
+	resp, err := http.Post(
+		"http://localhost:8080/graphql",
+		"application/json",
+		bytes.NewBuffer(jsonBody),
+	)
+
+	if err != nil {
+		log.Println(
+			"❌ Failed to save shared post:",
+			err,
+		)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	responseBody, _ := io.ReadAll(resp.Body)
+
+	log.Println(
+		"--GraphQL Response:",
+		string(responseBody),
+	)
+}
