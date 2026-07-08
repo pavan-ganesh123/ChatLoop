@@ -62,11 +62,6 @@ func (h *Hub) Run() {
 
 		case client := <-h.Register:
 
-			log.Println(
-				"🟢 Registering client:",
-				client.UserID,
-				client.Email,
-			)
 
 			h.Clients[client] = true
 
@@ -108,11 +103,6 @@ func (h *Hub) Run() {
 
 		case client := <-h.Unregister:
 
-			log.Println(
-				"🔴 Unregistering client:",
-				client.UserID,
-				client.Email,
-			)
 
 			if _, ok := h.Clients[client]; ok {
 
@@ -194,10 +184,6 @@ func (h *Hub) Run() {
 
 					case c.Send <- data:
 
-						log.Println(
-							"📤 Delivered to receiver:",
-							pm.to,
-						)
 
 					default:
 
@@ -223,10 +209,6 @@ func (h *Hub) Run() {
 
 					case c.Send <- data:
 
-						log.Println(
-							"📤 Delivered to sender:",
-							pm.from,
-						)
 
 					default:
 
