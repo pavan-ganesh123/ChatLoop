@@ -71,13 +71,8 @@ func SaveMessage(
 	}
 
 	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
 
-	responseBody, _ := io.ReadAll(resp.Body)
-
-	log.Println(
-		"📦 GraphQL Response:",
-		string(responseBody),
-	)
 }
 
 func DeleteForEveryone(
@@ -164,10 +159,7 @@ func SaveSharedPost(
 
 	defer resp.Body.Close()
 
-	responseBody, _ := io.ReadAll(resp.Body)
+	io.ReadAll(resp.Body)
 
-	log.Println(
-		"--GraphQL Response:",
-		string(responseBody),
-	)
+	
 }

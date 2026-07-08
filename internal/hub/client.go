@@ -36,7 +36,6 @@ func (c *Client) ReadPump() {
 		c.Conn.Close()
 	}()
 
-	log.Println("✅ ReadPump started for:", c.UserID, c.Email)
 
 	for {
 
@@ -199,7 +198,6 @@ func (c *Client) WritePump() {
 		c.Conn.Close()
 	}()
 
-	log.Println("✅ WritePump started for:", c.UserID)
 
 	for {
 		msg, ok := <-c.Send
@@ -209,7 +207,6 @@ func (c *Client) WritePump() {
 			return
 		}
 
-		log.Println("📤 Sending message to", c.UserID, ":", string(msg))
 
 		err := c.Conn.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {

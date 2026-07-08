@@ -20,7 +20,6 @@ func ServeWS(h *hub.Hub, w http.ResponseWriter, r *http.Request) {
 
 	// 🔐 Step 1: Validate JWT
 	token := r.URL.Query().Get("token")
-	log.Println("🔥 Incoming WS Token:", token)
 	user, err := auth.ValidateToken(token)
 	if err != nil {
 		log.Println("❌ Token validation failed:", err) // ✅ ADD THIS
@@ -28,7 +27,7 @@ func ServeWS(h *hub.Hub, w http.ResponseWriter, r *http.Request) {
 		return
 		
 	}
-	log.Println("✅ Authenticated user:", user.Email)
+
 	// 	user := struct {
 	// 	ID    string
 	// 	Email string
@@ -41,7 +40,6 @@ func ServeWS(h *hub.Hub, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	log.Println("Origin:", r.Header.Get("Origin"))
 
 	client := &hub.Client{
 	Hub:    h,
