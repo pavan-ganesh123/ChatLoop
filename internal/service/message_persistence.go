@@ -55,7 +55,7 @@ func SaveMessage(
 	jsonBody, _ := json.Marshal(body)
 
 	resp, err := http.Post(
-		"http://localhost:8080/graphql",
+		"https://codecache-13ic.onrender.com/graphql",
 		"application/json",
 		bytes.NewBuffer(jsonBody),
 	)
@@ -100,7 +100,7 @@ func DeleteForEveryone(
     jsonBody, _ := json.Marshal(body)
 
     http.Post(
-        "http://localhost:8080/graphql",
+        "https://codecache-13ic.onrender.com/graphql",
         "application/json",
         bytes.NewBuffer(jsonBody),
     )
@@ -144,7 +144,7 @@ func SaveSharedPost(
 	jsonBody, _ := json.Marshal(body)
 
 	resp, err := http.Post(
-		"http://localhost:8080/graphql",
+		"https://codecache-13ic.onrender.com/graphql",
 		"application/json",
 		bytes.NewBuffer(jsonBody),
 	)
