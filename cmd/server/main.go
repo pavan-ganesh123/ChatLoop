@@ -10,12 +10,33 @@ import (
 	"realtime-chat/internal/hub"
 	S "realtime-chat/internal/service"
 	ws "realtime-chat/internal/websocket"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(".env file not found")
+	}
 
-	// POSTGRES CONNECTION
-	connStr := "host=ep-red-scene-anvjjntv-pooler.c-6.us-east-1.aws.neon.tech port=5432 user=neondb_owner password=npg_qfT40vXFSZLW dbname=neondb sslmode=require"
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	sslmode := os.Getenv("DB_SSLMODE")
+
+	connStr := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		host,
+		port,
+		user,
+		password,
+		dbname,
+		sslmode,
+	)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
